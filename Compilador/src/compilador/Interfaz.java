@@ -5,18 +5,31 @@
  */
 package compilador;
 
+import java.awt.Color;
 import java.awt.Insets;
+import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.JTextPane;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultStyledDocument;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyleContext;
+import org.python.util.PythonInterpreter;
 
 /**
  *
@@ -33,12 +46,120 @@ public class Interfaz extends javax.swing.JFrame {
     public Interfaz() {
         initComponents();
         inicializar();
+        colors();
     }
 
     private void inicializar() {
         setTitle("Nuevo archivo");
         lineNumber = new LineNumber(this.TextAreaCodigo);
-        this.jScrollPane1.setRowHeaderView(this.lineNumber);
+        this.jScrollPane8.setRowHeaderView(this.lineNumber);
+    }
+
+    //METODO PARA ENCONTRAR LAS ULTIMAS CADENAS
+    private int findLastNonWordChar(String text, int index) {
+        while (--index >= 0) {
+            //  \\W = [A-Za-Z0-9]
+            if (String.valueOf(text.charAt(index)).matches("\\W")) {
+                break;
+            }
+        }
+        return index;
+    }
+
+    //METODO PARA ENCONTRAR LAS PRIMERAS CADENAS 
+    private int findFirstNonWordChar(String text, int index) {
+        while (index < text.length()) {
+            if (String.valueOf(text.charAt(index)).matches("\\W")) {
+                break;
+            }
+            index++;
+        }
+        return index;
+    }
+
+    //METODO PARA PINTAS LAS PALABRAS RESEVADAS
+    private void colors() {
+
+        final StyleContext cont = StyleContext.getDefaultStyleContext();
+
+        //COLORES 
+        final AttributeSet attred = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(255, 0, 35));
+        final AttributeSet attgreen = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(0, 255, 54));
+        final AttributeSet attblue = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(0, 147, 255));
+        final AttributeSet attpink = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(255, 192, 203));
+        final AttributeSet attblack = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(0, 0, 0));
+        final AttributeSet attgray = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(155, 155, 155));
+        final AttributeSet attOperadores = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.cyan);
+
+        //STYLO 
+        DefaultStyledDocument doc = new DefaultStyledDocument() {
+            public void insertString(int offset, String str, AttributeSet a) throws BadLocationException {
+                super.insertString(offset, str, a);
+
+                String text = getText(0, getLength());
+                int before = findLastNonWordChar(text, offset);
+                if (before < 0) {
+                    before = 0;
+                }
+                int after = findFirstNonWordChar(text, offset + str.length());
+                int wordL = before;
+                int wordR = before;
+
+                while (wordR <= after) {
+                    if (wordR == after || String.valueOf(text.charAt(wordR)).matches("\\W")) {
+                        if (text.substring(wordL, wordR).matches("(\\W)*(if|IF|else|ELSE|end|END|do|DO|while|WHILE|repeat|REPEAT|until|UNTIL|cin|cout)")) {
+                            setCharacterAttributes(wordL, wordR - wordL, attblue, false);
+                        } else if (text.substring(wordL, wordR).matches("(\\W)*(int|INT|real|REAL|boolean|BOOLEAN)")) {
+                            setCharacterAttributes(wordL, wordR - wordL, attgreen, false);
+                        } else if (text.substring(wordL, wordR).matches("(\\W)*(\\d+$)")) {
+                            setCharacterAttributes(wordL, wordR - wordL, attred, false);
+                        } else if (text.substring(wordL, wordR).matches("(\\W)*(true|TRUE|false|FALSE)")) {
+                            setCharacterAttributes(wordL, wordR - wordL, attpink, false);
+                        } else if (text.substring(wordL, wordR).matches("[-+*/]")) {
+                            setCharacterAttributes(wordL, wordR - wordL, attOperadores, false);
+                        } else {
+                            setCharacterAttributes(wordL, wordR - wordL, attblack, false);
+                        }
+                        wordL = wordR;
+                    }
+                    wordR++;
+                }
+                //DETECTAR COMETARIOS
+                Pattern singleLinecommentsPattern = Pattern.compile("\\/\\/.*");
+                Matcher matcher = singleLinecommentsPattern.matcher(text);
+
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(),attgray, false);
+                }
+
+                Pattern multipleLinecommentsPattern = Pattern.compile("\\/\\*.*?\\*\\/",
+                        Pattern.DOTALL);
+                matcher = multipleLinecommentsPattern.matcher(text);
+
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(), attgray, false);
+                }
+            }
+
+            public void romeve(int offs, int len) throws BadLocationException {
+                super.remove(offs, len);
+
+                String text = getText(0, getLength());
+                int before = findLastNonWordChar(text, offs);
+                if (before < 0) {
+                    before = 0;
+                }
+            }
+
+        };
+
+        JTextPane txt = new JTextPane(doc);
+        String temp = this.TextAreaCodigo.getText();
+        this.TextAreaCodigo.setStyledDocument(txt.getStyledDocument());
+        this.TextAreaCodigo.setText(temp);
+
     }
 
     /**
@@ -52,8 +173,6 @@ public class Interfaz extends javax.swing.JFrame {
         java.awt.GridBagConstraints gridBagConstraints;
 
         jPanel1 = new javax.swing.JPanel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        TextAreaCodigo = new javax.swing.JTextArea();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         jPanel2 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
@@ -74,6 +193,8 @@ public class Interfaz extends javax.swing.JFrame {
         jPanel7 = new javax.swing.JPanel();
         jScrollPane7 = new javax.swing.JScrollPane();
         jTextAreaCodigoIntermedio = new javax.swing.JTextArea();
+        jScrollPane8 = new javax.swing.JScrollPane();
+        TextAreaCodigo = new javax.swing.JTextPane();
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
         jMenuItem1 = new javax.swing.JMenuItem();
@@ -90,30 +211,6 @@ public class Interfaz extends javax.swing.JFrame {
         jPanel1.setBackground(new java.awt.Color(153, 153, 153));
         jPanel1.setLayout(new java.awt.GridBagLayout());
 
-        TextAreaCodigo.setColumns(20);
-        TextAreaCodigo.setFont(new java.awt.Font("Arial", 0, 18)); // NOI18N
-        TextAreaCodigo.setRows(5);
-        TextAreaCodigo.setBorder(javax.swing.BorderFactory.createEmptyBorder(3, 3, 3, 3));
-        TextAreaCodigo.setCursor(new java.awt.Cursor(java.awt.Cursor.TEXT_CURSOR));
-        TextAreaCodigo.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent evt) {
-                TextAreaCodigoKeyReleased(evt);
-            }
-        });
-        jScrollPane1.setViewportView(TextAreaCodigo);
-
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.ipadx = 699;
-        gridBagConstraints.ipady = 508;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(13, 12, 0, 0);
-        jPanel1.add(jScrollPane1, gridBagConstraints);
-
         jTabbedPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
 
         jTextAreaResultados.setEditable(false);
@@ -126,11 +223,11 @@ public class Interfaz extends javax.swing.JFrame {
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 1269, Short.MAX_VALUE)
+            .addGap(0, 1296, Short.MAX_VALUE)
             .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel2Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 1245, Short.MAX_VALUE)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 1272, Short.MAX_VALUE)
                     .addContainerGap()))
         );
         jPanel2Layout.setVerticalGroup(
@@ -155,11 +252,11 @@ public class Interfaz extends javax.swing.JFrame {
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 1269, Short.MAX_VALUE)
+            .addGap(0, 1296, Short.MAX_VALUE)
             .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel3Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 1245, Short.MAX_VALUE)
+                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 1272, Short.MAX_VALUE)
                     .addContainerGap()))
         );
         jPanel3Layout.setVerticalGroup(
@@ -306,9 +403,32 @@ public class Interfaz extends javax.swing.JFrame {
         gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
         gridBagConstraints.ipadx = 417;
         gridBagConstraints.ipady = 416;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHEAST;
         gridBagConstraints.insets = new java.awt.Insets(13, 12, 0, 12);
         jPanel1.add(jTabbedPane7, gridBagConstraints);
+
+        TextAreaCodigo.setBorder(javax.swing.BorderFactory.createEmptyBorder(3, 3, 3, 3));
+        TextAreaCodigo.setFont(new java.awt.Font("Arial", 0, 18)); // NOI18N
+        TextAreaCodigo.setMinimumSize(new java.awt.Dimension(255, 255));
+        TextAreaCodigo.setPreferredSize(new java.awt.Dimension(286, 116));
+        TextAreaCodigo.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                TextAreaCodigoKeyReleased(evt);
+            }
+        });
+        jScrollPane8.setViewportView(TextAreaCodigo);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.ipadx = 699;
+        gridBagConstraints.ipady = 508;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(13, 12, 0, 0);
+        jPanel1.add(jScrollPane8, gridBagConstraints);
 
         jMenuBar1.setBackground(new java.awt.Color(255, 255, 255));
         jMenuBar1.setPreferredSize(new java.awt.Dimension(291, 35));
@@ -370,7 +490,7 @@ public class Interfaz extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 1300, Short.MAX_VALUE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 1327, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -471,10 +591,14 @@ public class Interfaz extends javax.swing.JFrame {
     private void jMenuItem4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem4ActionPerformed
         TextAreaCodigo.setText("");
         RutaActual = "";
-         setTitle("Nuevo archivo");
+        setTitle("Nuevo archivo");
     }//GEN-LAST:event_jMenuItem4ActionPerformed
 
     private void TextAreaCodigoKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_TextAreaCodigoKeyReleased
+        this.tecla(evt);
+    }//GEN-LAST:event_TextAreaCodigoKeyReleased
+
+    private void tecla(java.awt.event.KeyEvent evt) {
         int keyCode = evt.getKeyCode();
         if ((keyCode >= 65 && keyCode <= 90) || (keyCode >= 48 && keyCode <= 57)
                 || (keyCode >= 97 && keyCode <= 122) || (keyCode != 27 && !(keyCode >= 37
@@ -486,7 +610,35 @@ public class Interfaz extends javax.swing.JFrame {
                 setTitle(getTitle() + "*");
             }
         }
-    }//GEN-LAST:event_TextAreaCodigoKeyReleased
+        if (evt.getKeyCode() == KeyEvent.VK_ENTER) {
+
+            PythonInterpreter interpreter = new PythonInterpreter();
+
+            String[] argumentos = TextAreaCodigo.getText().split("\r?\n");
+            String ArgumentosString = "[";
+            for (int i = 0; i < argumentos.length; i++) {
+                ArgumentosString += ("'" + argumentos[i] + "'");
+                if (i == (argumentos.length - 1)) {
+
+                } else {
+                    ArgumentosString += ",";
+                }
+            }
+            ArgumentosString += "]";
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            PrintStream printStream = new PrintStream(outputStream);
+            interpreter.setOut(printStream);
+            interpreter.exec(
+                    "import sys\n"
+                    + "sys.argv = " + ArgumentosString);
+            interpreter.execfile("C:\\Users\\Lenovo\\Documents\\JAVA\\Compilador\\Compilador\\read.py");
+
+            // Obtener la salida del script como una cadena de texto
+            String output = outputStream.toString();
+
+            jTextAreaLexico.setText(output);
+        }
+    }
 
     /**
      * @param args the command line arguments
@@ -518,16 +670,21 @@ public class Interfaz extends javax.swing.JFrame {
                 if ("Windows".equals(info.getName())) {
                     javax.swing.UIManager.setLookAndFeel(info.getClassName());
                     break;
+
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Interfaz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(Interfaz.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Interfaz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(Interfaz.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Interfaz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(Interfaz.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Interfaz.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(Interfaz.class
+                    .getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
 
@@ -540,7 +697,7 @@ public class Interfaz extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JTextArea TextAreaCodigo;
+    private javax.swing.JTextPane TextAreaCodigo;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenu jMenu3;
@@ -558,13 +715,13 @@ public class Interfaz extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JScrollPane jScrollPane6;
     private javax.swing.JScrollPane jScrollPane7;
+    private javax.swing.JScrollPane jScrollPane8;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JTabbedPane jTabbedPane7;
     private javax.swing.JTextArea jTextAreaCodigoIntermedio;

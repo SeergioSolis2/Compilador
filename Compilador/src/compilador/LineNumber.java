@@ -37,7 +37,7 @@ public class LineNumber extends JPanel
 
 	//  Text component this TextTextLineNumber component is in sync with
 
-	private JTextArea component;
+	private JTextPane component;
 
 	//  Properties that can be changed
 
@@ -62,7 +62,7 @@ public class LineNumber extends JPanel
 	 *
 	 *  @param component  the related text component
 	 */
-	public LineNumber(JTextArea component)
+	public LineNumber(JTextPane component)
 	{
 		this(component, 3);
 	}
@@ -74,7 +74,7 @@ public class LineNumber extends JPanel
 	 *  @param minimumDisplayDigits  the number of digits used to calculate
 	 *                               the minimum width of the component
 	 */
-	public LineNumber(JTextArea component, int minimumDisplayDigits)
+	public LineNumber(JTextPane component, int minimumDisplayDigits)
 	{
 		this.component = component;
 
