@@ -8,7 +8,7 @@ for i in range(0,len(sys.argv)):
     contenido+='\n'
 
 # Diccionarios de tokens
-palabras_reservadas = {"main": "palabra reservada", "if": "palabra reservada", "else": "palabra reservada", "end": "palabra reservada", "do": "palabra reservada", "while": "palabra reservada", "repeat": "palabra reservada", "until": "palabra reservada", "cin": "palabra reservada", "cout": "palabra reservada", "real": "palabra reservada", "int": "palabra reservada", "boolean": "palabra reservada", "true": "palabra reservada", "false": "palabra reservada"}
+palabras_reservadas = {"main": "palabra reservada", "then": "palabra reservada", "if": "palabra reservada", "else": "palabra reservada", "end": "palabra reservada", "do": "palabra reservada", "while": "palabra reservada", "repeat": "palabra reservada", "until": "palabra reservada", "cin": "palabra reservada", "cout": "palabra reservada", "real": "palabra reservada", "int": "palabra reservada", "boolean": "palabra reservada", "true": "palabra reservada", "false": "palabra reservada"}
 simbolos_especiales = {"(": "PAR_IZQ", ")": "PAR_DER", "{": "LLAVE_IZQ", "}": "LLAVE_DER", ";": "PUNTO_COMA", ",": "COMA"}
 operadores_aritmeticos = {"+": "SUMA", "-": "RESTA", "*": "MULTIPLICACION", "/": "DIVISION", "=": "IGUALACION"}
 operadores_relacionales = {"==": "IGUALDAD", "!=": "DIFERENTE", "<>":"DIFERENTE2","<": "MENOR_QUE", ">": "MAYOR_QUE", "<=": "MENOR_IGUAL_QUE", ">=": "MAYOR_IGUAL_QUE"}

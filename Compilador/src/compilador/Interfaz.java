@@ -7,7 +7,6 @@ package compilador;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Insets;
 import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -27,25 +26,18 @@ import java.util.logging.Logger;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.event.CaretEvent;
 import javax.swing.event.CaretListener;
-import javax.swing.plaf.TabbedPaneUI;
 import javax.swing.plaf.basic.BasicMenuBarUI;
-import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.Caret;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.Document;
 import javax.swing.text.Element;
 import javax.swing.text.JTextComponent;
-import javax.swing.text.MutableAttributeSet;
-import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyleContext;
-import javax.swing.text.Utilities;
 import org.python.util.PythonInterpreter;
 
 /**
@@ -116,29 +108,7 @@ public class Interfaz extends javax.swing.JFrame {
         }
     }
 
-    //METODO PARA ENCONTRAR LAS ULTIMAS CADENAS
-    private int findLastNonWordChar(String text, int index) {
-        while (--index >= 0) {
-            //  \\W = [A-Za-Z0-9]
-            if (String.valueOf(text.charAt(index)).matches("\\W")) {
-                break;
-            }
-        }
-        return index;
-    }
-
-    //METODO PARA ENCONTRAR LAS PRIMERAS CADENAS 
-    private int findFirstNonWordChar(String text, int index) {
-        while (index < text.length()) {
-            if (String.valueOf(text.charAt(index)).matches("\\W")) {
-                break;
-            }
-            index++;
-        }
-        return index;
-    }
-
-    //METODO PARA PINTAS LAS PALABRAS RESEVADAS
+    //METODO PARA PINTAS LAS PALABRAS 
     private void colors() {
 
         final StyleContext cont = StyleContext.getDefaultStyleContext();
@@ -150,52 +120,126 @@ public class Interfaz extends javax.swing.JFrame {
         final AttributeSet attpink = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(255, 192, 203));
         final AttributeSet attblack = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(0, 0, 0));
         final AttributeSet attgray = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(155, 155, 155));
-        final AttributeSet attOperadores = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.cyan);
+        final AttributeSet attOperadores = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(128, 0, 128));
         final AttributeSet attwhite = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.WHITE);
         //STYLO 
-        DefaultStyledDocument doc = new DefaultStyledDocument() {           
-            
-            @Override 
-            public void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr){
-                super.insertUpdate(chng, attr);
-                
+        DefaultStyledDocument doc = new DefaultStyledDocument() {
+            @Override
+            public void postRemoveUpdate(DefaultDocumentEvent chng) {
+                try {
+                    super.postRemoveUpdate(chng);
+                    String text = getText(0, getLength());
+                    //reset text
+                    if (isNightMode) {
+                        setCharacterAttributes(0, getLength(), attwhite, true);
+                    } else {
+                        setCharacterAttributes(0, getLength(), attblack, true);
+                    }
+                    //match palabras reservaadas
+                    Pattern palabrasReservadas = Pattern.compile("\\b(main|if|IF|else|ELSE|end|END|do|DO|while|WHILE|then|THEN|repeat|REPEAT|until|UNTIL|cin|cout)\\b");
+                    Matcher matcher = palabrasReservadas.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attblue, true);
+                    }
+                    //match NUMEROS
+                    Pattern numerosPattern = Pattern.compile("\\b(-?\\d+(\\.\\d+)?)\\b");
+                    matcher = numerosPattern.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attred, true);
+                    }
+                    //match tipo de datos
+                    Pattern tipoDeDatos = Pattern.compile("\\b(int|INT|real|REAL|boolean|BOOLEAN)\\b");
+                    matcher = tipoDeDatos.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attgreen, true);
+                    }
+                    //MATCH VALORES BOOLEANOS
+                    Pattern booleanPattern = Pattern.compile("\\b(true|TRUE|false|FALSE)\\b");
+                    matcher = booleanPattern.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attpink, true);
+                    }
+                    //MATCH OPERADORES
+                    Pattern operatorsPattern = Pattern.compile("[-+*/=<>!]");
+                    matcher = operatorsPattern.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attOperadores, true);
+                    }
+                    //DETECTAR COMETARIOS
+                    Pattern singleLinecommentsPattern = Pattern.compile("\\/\\/.*");
+                    matcher = singleLinecommentsPattern.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attgray, false);
+                    }
+
+                    Pattern multipleLinecommentsPattern = Pattern.compile("\\/\\*.*?\\*\\/",
+                            Pattern.DOTALL);
+                    matcher = multipleLinecommentsPattern.matcher(text);
+                    while (matcher.find()) {
+                        setCharacterAttributes(matcher.start(),
+                                matcher.end() - matcher.start(), attgray, false);
+                    }
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(Interfaz.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
             }
+
+            @Override
             public void insertString(int offset, String str, AttributeSet a) throws BadLocationException {
                 super.insertString(offset, str, a);
 
                 String text = getText(0, getLength());
-                int before = findLastNonWordChar(text, offset);
-                if (before < 0) {
-                    before = 0;
+                //reset text
+                if (isNightMode) {
+                    setCharacterAttributes(0, getLength(), attwhite, true);
+                } else {
+                    setCharacterAttributes(0, getLength(), attblack, true);
                 }
-                int after = findFirstNonWordChar(text, offset + str.length());
-                int wordL = before;
-                int wordR = before;
-
-                while (wordR <= after) {
-                    if (wordR == after || String.valueOf(text.charAt(wordR)).matches("\\W")) {
-                        if (text.substring(wordL, wordR).matches("(\\W)*(main|if|IF|else|ELSE|end|END|do|DO|while|WHILE|repeat|REPEAT|until|UNTIL|cin|cout)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attblue, true);
-                        } else if (text.substring(wordL, wordR).matches("(\\W)*(int|INT|real|REAL|boolean|BOOLEAN)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attgreen, true);
-                        } else if (text.substring(wordL, wordR).matches("(\\W)*(\\d+$)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attred, true);
-                        } else if (text.substring(wordL, wordR).matches("(\\W)*(true|TRUE|false|FALSE)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attpink, true);
-                        } else if (text.substring(wordL, wordR).matches("[-+*/=<>!]")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attOperadores, true);
-                        } else {
-                            MutableAttributeSet attrs = new SimpleAttributeSet();
-                            setCharacterAttributes(wordL, wordR - wordL, attrs, true);
-                        }
-                        wordL = wordR;
-                    }
-                    wordR++;
+                //match palabras reservaadas
+                Pattern palabrasReservadas = Pattern.compile("\\b(main|if|IF|else|ELSE|end|END|do|DO|while|then|THEN|WHILE|repeat|REPEAT|until|UNTIL|cin|cout)\\b");
+                Matcher matcher = palabrasReservadas.matcher(text);
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(), attblue, true);
+                }
+                //match NUMEROS
+                Pattern numerosPattern = Pattern.compile("\\b(-?\\d+(\\.\\d+)?)\\b");
+                matcher = numerosPattern.matcher(text);
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(), attred, true);
+                }
+                //match tipo de datos
+                Pattern tipoDeDatos = Pattern.compile("\\b(int|INT|real|REAL|boolean|BOOLEAN)\\b");
+                matcher = tipoDeDatos.matcher(text);
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(), attgreen, true);
+                }
+                //MATCH VALORES BOOLEANOS
+                Pattern booleanPattern = Pattern.compile("\\b(true|TRUE|false|FALSE)\\b");
+                matcher = booleanPattern.matcher(text);
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(), attpink, true);
+                }
+                //MATCH OPERADORES
+                Pattern operatorsPattern = Pattern.compile("[-+*/=<>!]");
+                matcher = operatorsPattern.matcher(text);
+                while (matcher.find()) {
+                    setCharacterAttributes(matcher.start(),
+                            matcher.end() - matcher.start(), attOperadores, true);
                 }
                 //DETECTAR COMETARIOS
                 Pattern singleLinecommentsPattern = Pattern.compile("\\/\\/.*");
-                Matcher matcher = singleLinecommentsPattern.matcher(text);
-
+                matcher = singleLinecommentsPattern.matcher(text);
                 while (matcher.find()) {
                     setCharacterAttributes(matcher.start(),
                             matcher.end() - matcher.start(), attgray, false);
@@ -208,16 +252,6 @@ public class Interfaz extends javax.swing.JFrame {
                 while (matcher.find()) {
                     setCharacterAttributes(matcher.start(),
                             matcher.end() - matcher.start(), attgray, false);
-                }
-            }
-
-            public void romeve(int offs, int len) throws BadLocationException {
-                super.remove(offs, len);
-
-                String text = getText(0, getLength());
-                int before = findLastNonWordChar(text, offs);
-                if (before < 0) {
-                    before = 0;
                 }
             }
 
@@ -721,8 +755,8 @@ public class Interfaz extends javax.swing.JFrame {
         this.tecla(evt);
     }//GEN-LAST:event_TextAreaCodigoKeyReleased
 
-    private void TextAreaCodigoKeyTyped(java.awt.event.KeyEvent evt){
-        
+    private void TextAreaCodigoKeyTyped(java.awt.event.KeyEvent evt) {
+
     }
 
     private void TextAreaCodigoKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_TextAreaCodigoKeyPressed
@@ -741,13 +775,6 @@ public class Interfaz extends javax.swing.JFrame {
                     g.fillRect(0, 0, c.getWidth(), c.getHeight());
                 }
             });
-            /*jTabbedPane1.setUI(new BasicTabbedPaneUI(){
-             public void paint(Graphics g, JComponent c) {
-             g.setColor(Color.DARK_GRAY);
-             g.fillRect(0, 0, c.getWidth(), c.getHeight());
-             }
-             });*/
-            //this.jPanel1.setBackground(Color.DARK_GRAY);
 
             this.TextAreaCodigo.setBackground(Color.DARK_GRAY);
             this.TextAreaCodigo.setForeground(Color.WHITE);
