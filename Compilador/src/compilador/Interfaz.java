@@ -6,6 +6,7 @@
 package compilador;
 
 import java.awt.Color;
+import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.event.KeyEvent;
 import java.io.BufferedReader;
@@ -21,14 +22,30 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextPane;
+import javax.swing.event.CaretEvent;
+import javax.swing.event.CaretListener;
+import javax.swing.plaf.TabbedPaneUI;
+import javax.swing.plaf.basic.BasicMenuBarUI;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.Caret;
 import javax.swing.text.DefaultStyledDocument;
+import javax.swing.text.Document;
+import javax.swing.text.Element;
+import javax.swing.text.JTextComponent;
+import javax.swing.text.MutableAttributeSet;
+import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyleContext;
+import javax.swing.text.Utilities;
 import org.python.util.PythonInterpreter;
 
 /**
@@ -39,6 +56,7 @@ public class Interfaz extends javax.swing.JFrame {
 
     public String RutaActual = "";
     private LineNumber lineNumber;
+    private boolean isNightMode;
 
     /**
      * Creates new form Interfaz
@@ -53,6 +71,49 @@ public class Interfaz extends javax.swing.JFrame {
         setTitle("Nuevo archivo");
         lineNumber = new LineNumber(this.TextAreaCodigo);
         this.jScrollPane8.setRowHeaderView(this.lineNumber);
+        this.jCheckBoxTheme.setSelected(false);
+        this.isNightMode = false;
+        this.TextAreaCodigo.addCaretListener(new CaretListener() {
+            // Each time the caret is moved, it will trigger the listener and its method caretUpdate.
+            // It will then pass the event to the update method including the source of the event (which is our textarea control)
+            @Override
+            public void caretUpdate(CaretEvent e) {
+                int dot = e.getDot();
+                int line;
+                try {
+                    line = getLineOfOffset(TextAreaCodigo, dot);
+                    int positionInLine = dot - getLineStartOffset(TextAreaCodigo, line);
+                    jLabelLine.setText("linea: " + (line + 1) + ", columna: " + (positionInLine + 1));
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(Interfaz.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        });
+    }
+
+    static int getLineOfOffset(JTextComponent comp, int offset) throws BadLocationException {
+        Document doc = comp.getDocument();
+        if (offset < 0) {
+            throw new BadLocationException("Can't translate offset to line", -1);
+        } else if (offset > doc.getLength()) {
+            throw new BadLocationException("Can't translate offset to line", doc.getLength() + 1);
+        } else {
+            Element map = doc.getDefaultRootElement();
+            return map.getElementIndex(offset);
+        }
+    }
+
+    static int getLineStartOffset(JTextComponent comp, int line) throws BadLocationException {
+        Element map = comp.getDocument().getDefaultRootElement();
+        if (line < 0) {
+            throw new BadLocationException("Negative line", -1);
+        } else if (line >= map.getElementCount()) {
+            throw new BadLocationException("No such line", comp.getDocument().getLength() + 1);
+        } else {
+            Element lineElem = map.getElement(line);
+            return lineElem.getStartOffset();
+        }
     }
 
     //METODO PARA ENCONTRAR LAS ULTIMAS CADENAS
@@ -90,9 +151,10 @@ public class Interfaz extends javax.swing.JFrame {
         final AttributeSet attblack = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(0, 0, 0));
         final AttributeSet attgray = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, new Color(155, 155, 155));
         final AttributeSet attOperadores = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.cyan);
-
+        final AttributeSet attwhite = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.WHITE);
         //STYLO 
         DefaultStyledDocument doc = new DefaultStyledDocument() {
+            @Override
             public void insertString(int offset, String str, AttributeSet a) throws BadLocationException {
                 super.insertString(offset, str, a);
 
@@ -108,17 +170,18 @@ public class Interfaz extends javax.swing.JFrame {
                 while (wordR <= after) {
                     if (wordR == after || String.valueOf(text.charAt(wordR)).matches("\\W")) {
                         if (text.substring(wordL, wordR).matches("(\\W)*(if|IF|else|ELSE|end|END|do|DO|while|WHILE|repeat|REPEAT|until|UNTIL|cin|cout)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attblue, false);
+                            setCharacterAttributes(wordL, wordR - wordL, attblue, true);
                         } else if (text.substring(wordL, wordR).matches("(\\W)*(int|INT|real|REAL|boolean|BOOLEAN)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attgreen, false);
+                            setCharacterAttributes(wordL, wordR - wordL, attgreen, true);
                         } else if (text.substring(wordL, wordR).matches("(\\W)*(\\d+$)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attred, false);
+                            setCharacterAttributes(wordL, wordR - wordL, attred, true);
                         } else if (text.substring(wordL, wordR).matches("(\\W)*(true|TRUE|false|FALSE)")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attpink, false);
-                        } else if (text.substring(wordL, wordR).matches("[-+*/]")) {
-                            setCharacterAttributes(wordL, wordR - wordL, attOperadores, false);
+                            setCharacterAttributes(wordL, wordR - wordL, attpink, true);
+                        } else if (text.substring(wordL, wordR).matches("[-+*/=]")) {
+                            setCharacterAttributes(wordL, wordR - wordL, attOperadores, true);
                         } else {
-                            setCharacterAttributes(wordL, wordR - wordL, attblack, false);
+                            MutableAttributeSet attrs = new SimpleAttributeSet();
+                            setCharacterAttributes(wordL, wordR - wordL, attrs, true);
                         }
                         wordL = wordR;
                     }
@@ -130,7 +193,7 @@ public class Interfaz extends javax.swing.JFrame {
 
                 while (matcher.find()) {
                     setCharacterAttributes(matcher.start(),
-                            matcher.end() - matcher.start(),attgray, false);
+                            matcher.end() - matcher.start(), attgray, false);
                 }
 
                 Pattern multipleLinecommentsPattern = Pattern.compile("\\/\\*.*?\\*\\/",
@@ -173,6 +236,7 @@ public class Interfaz extends javax.swing.JFrame {
         java.awt.GridBagConstraints gridBagConstraints;
 
         jPanel1 = new javax.swing.JPanel();
+        jLabelLine = new javax.swing.JLabel();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         jPanel2 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
@@ -205,13 +269,27 @@ public class Interfaz extends javax.swing.JFrame {
         jMenu3 = new javax.swing.JMenu();
         jMenu4 = new javax.swing.JMenu();
         jMenu5 = new javax.swing.JMenu();
+        jMenu6 = new javax.swing.JMenu();
+        jCheckBoxTheme = new javax.swing.JCheckBoxMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jPanel1.setBackground(new java.awt.Color(153, 153, 153));
         jPanel1.setLayout(new java.awt.GridBagLayout());
 
-        jTabbedPane1.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        jLabelLine.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+        jLabelLine.setForeground(new java.awt.Color(255, 255, 255));
+        jLabelLine.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabelLine.setText("Bienvenido");
+        jLabelLine.setBorder(javax.swing.BorderFactory.createEtchedBorder());
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.gridwidth = 3;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        jPanel1.add(jLabelLine, gridBagConstraints);
+
+        jPanel2.setBackground(new java.awt.Color(153, 153, 153));
 
         jTextAreaResultados.setEditable(false);
         jTextAreaResultados.setColumns(20);
@@ -223,11 +301,11 @@ public class Interfaz extends javax.swing.JFrame {
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 1296, Short.MAX_VALUE)
+            .addGap(0, 1312, Short.MAX_VALUE)
             .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel2Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 1272, Short.MAX_VALUE)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 1288, Short.MAX_VALUE)
                     .addContainerGap()))
         );
         jPanel2Layout.setVerticalGroup(
@@ -242,6 +320,11 @@ public class Interfaz extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("Resultado", jPanel2);
 
+        jPanel3.setBackground(new java.awt.Color(153, 153, 153));
+        jPanel3.setAlignmentX(0.0F);
+        jPanel3.setAlignmentY(0.0F);
+        jPanel3.setAutoscrolls(true);
+
         jTextAreaErrores.setEditable(false);
         jTextAreaErrores.setColumns(20);
         jTextAreaErrores.setRows(5);
@@ -252,11 +335,11 @@ public class Interfaz extends javax.swing.JFrame {
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 1296, Short.MAX_VALUE)
+            .addGap(0, 1312, Short.MAX_VALUE)
             .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel3Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 1272, Short.MAX_VALUE)
+                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 1288, Short.MAX_VALUE)
                     .addContainerGap()))
         );
         jPanel3Layout.setVerticalGroup(
@@ -281,8 +364,13 @@ public class Interfaz extends javax.swing.JFrame {
         gridBagConstraints.insets = new java.awt.Insets(7, 12, 13, 12);
         jPanel1.add(jTabbedPane1, gridBagConstraints);
 
+        jPanel4.setBackground(new java.awt.Color(153, 153, 153));
+
         jTextAreaLexico.setEditable(false);
+        jTextAreaLexico.setBackground(new java.awt.Color(102, 0, 102));
         jTextAreaLexico.setColumns(20);
+        jTextAreaLexico.setFont(new java.awt.Font("Monospaced", 0, 18)); // NOI18N
+        jTextAreaLexico.setForeground(new java.awt.Color(255, 255, 255));
         jTextAreaLexico.setRows(5);
         jTextAreaLexico.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         jScrollPane4.setViewportView(jTextAreaLexico);
@@ -300,15 +388,17 @@ public class Interfaz extends javax.swing.JFrame {
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 505, Short.MAX_VALUE)
+            .addGap(0, 506, Short.MAX_VALUE)
             .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel4Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 479, Short.MAX_VALUE)
+                    .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 480, Short.MAX_VALUE)
                     .addContainerGap()))
         );
 
         jTabbedPane7.addTab("Lexico", jPanel4);
+
+        jPanel5.setBackground(new java.awt.Color(153, 153, 153));
 
         jTextAreaSintacticp.setEditable(false);
         jTextAreaSintacticp.setColumns(20);
@@ -329,15 +419,17 @@ public class Interfaz extends javax.swing.JFrame {
         );
         jPanel5Layout.setVerticalGroup(
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 505, Short.MAX_VALUE)
+            .addGap(0, 506, Short.MAX_VALUE)
             .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel5Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 479, Short.MAX_VALUE)
+                    .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 480, Short.MAX_VALUE)
                     .addContainerGap()))
         );
 
         jTabbedPane7.addTab("Sintactico", jPanel5);
+
+        jPanel6.setBackground(new java.awt.Color(153, 153, 153));
 
         jTextAreaSemantico.setEditable(false);
         jTextAreaSemantico.setColumns(20);
@@ -358,15 +450,17 @@ public class Interfaz extends javax.swing.JFrame {
         );
         jPanel6Layout.setVerticalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 505, Short.MAX_VALUE)
+            .addGap(0, 506, Short.MAX_VALUE)
             .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel6Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 479, Short.MAX_VALUE)
+                    .addComponent(jScrollPane6, javax.swing.GroupLayout.DEFAULT_SIZE, 480, Short.MAX_VALUE)
                     .addContainerGap()))
         );
 
         jTabbedPane7.addTab("Semantico", jPanel6);
+
+        jPanel7.setBackground(new java.awt.Color(153, 153, 153));
 
         jTextAreaCodigoIntermedio.setEditable(false);
         jTextAreaCodigoIntermedio.setColumns(20);
@@ -387,11 +481,11 @@ public class Interfaz extends javax.swing.JFrame {
         );
         jPanel7Layout.setVerticalGroup(
             jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 505, Short.MAX_VALUE)
+            .addGap(0, 506, Short.MAX_VALUE)
             .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(jPanel7Layout.createSequentialGroup()
                     .addContainerGap()
-                    .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 479, Short.MAX_VALUE)
+                    .addComponent(jScrollPane7, javax.swing.GroupLayout.DEFAULT_SIZE, 480, Short.MAX_VALUE)
                     .addContainerGap()))
         );
 
@@ -412,8 +506,14 @@ public class Interfaz extends javax.swing.JFrame {
         TextAreaCodigo.setMinimumSize(new java.awt.Dimension(255, 255));
         TextAreaCodigo.setPreferredSize(new java.awt.Dimension(286, 116));
         TextAreaCodigo.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyPressed(java.awt.event.KeyEvent evt) {
+                TextAreaCodigoKeyPressed(evt);
+            }
             public void keyReleased(java.awt.event.KeyEvent evt) {
                 TextAreaCodigoKeyReleased(evt);
+            }
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                TextAreaCodigoKeyTyped(evt);
             }
         });
         jScrollPane8.setViewportView(TextAreaCodigo);
@@ -484,17 +584,35 @@ public class Interfaz extends javax.swing.JFrame {
         jMenu5.setText("Ayuda");
         jMenuBar1.add(jMenu5);
 
+        jMenu6.setText("Tema");
+
+        jCheckBoxTheme.setSelected(true);
+        jCheckBoxTheme.setText("Modo noche");
+        jCheckBoxTheme.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                jCheckBoxThemeStateChanged(evt);
+            }
+        });
+        jCheckBoxTheme.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jCheckBoxThemeActionPerformed(evt);
+            }
+        });
+        jMenu6.add(jCheckBoxTheme);
+
+        jMenuBar1.add(jMenu6);
+
         setJMenuBar(jMenuBar1);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 1327, Short.MAX_VALUE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 1341, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 738, Short.MAX_VALUE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, 758, Short.MAX_VALUE)
         );
 
         pack();
@@ -598,6 +716,136 @@ public class Interfaz extends javax.swing.JFrame {
         this.tecla(evt);
     }//GEN-LAST:event_TextAreaCodigoKeyReleased
 
+    private void TextAreaCodigoKeyTyped(java.awt.event.KeyEvent evt){
+        
+    }
+
+    private void TextAreaCodigoKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_TextAreaCodigoKeyPressed
+    }//GEN-LAST:event_TextAreaCodigoKeyPressed
+
+    private void jCheckBoxThemeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBoxThemeActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_jCheckBoxThemeActionPerformed
+
+    //change theme :)))))
+    private void jCheckBoxThemeStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_jCheckBoxThemeStateChanged
+        if (this.jCheckBoxTheme.isSelected()) {
+            jMenuBar1.setUI(new BasicMenuBarUI() {
+                public void paint(Graphics g, JComponent c) {
+                    g.setColor(Color.DARK_GRAY);
+                    g.fillRect(0, 0, c.getWidth(), c.getHeight());
+                }
+            });
+            /*jTabbedPane1.setUI(new BasicTabbedPaneUI(){
+             public void paint(Graphics g, JComponent c) {
+             g.setColor(Color.DARK_GRAY);
+             g.fillRect(0, 0, c.getWidth(), c.getHeight());
+             }
+             });*/
+            //this.jPanel1.setBackground(Color.DARK_GRAY);
+
+            this.TextAreaCodigo.setBackground(Color.DARK_GRAY);
+            this.TextAreaCodigo.setForeground(Color.WHITE);
+            this.TextAreaCodigo.setCaretColor(Color.WHITE);
+            isNightMode = true;
+            this.lineNumber.updateColor(isNightMode);
+            this.jMenuBar1.setBackground(Color.black);
+            jMenuBar1.setOpaque(true);
+
+            this.jMenu1.setBackground(Color.DARK_GRAY);
+            this.jMenu1.setForeground(Color.WHITE);
+            jMenu1.setOpaque(true);
+            this.jMenuItem1.setBackground(Color.DARK_GRAY);
+            this.jMenuItem1.setForeground(Color.WHITE);
+            jMenuItem1.setOpaque(true);
+
+            this.jMenuItem2.setBackground(Color.DARK_GRAY);
+            this.jMenuItem2.setForeground(Color.WHITE);
+            jMenuItem2.setOpaque(true);
+            this.jMenuItem3.setBackground(Color.DARK_GRAY);
+            this.jMenuItem3.setForeground(Color.WHITE);
+            jMenuItem3.setOpaque(true);
+
+            this.jMenuItem4.setBackground(Color.DARK_GRAY);
+            this.jMenuItem4.setForeground(Color.WHITE);
+            jMenuItem4.setOpaque(true);
+
+            this.jCheckBoxTheme.setBackground(Color.DARK_GRAY);
+            this.jCheckBoxTheme.setForeground(Color.WHITE);
+            jCheckBoxTheme.setOpaque(true);
+
+            this.jMenu2.setBackground(Color.DARK_GRAY);
+            this.jMenu2.setForeground(Color.WHITE);
+            jMenu2.setOpaque(true);
+            this.jMenu3.setBackground(Color.DARK_GRAY);
+            this.jMenu3.setForeground(Color.WHITE);
+            jMenu3.setOpaque(true);
+            this.jMenu4.setBackground(Color.DARK_GRAY);
+            this.jMenu4.setForeground(Color.WHITE);
+            jMenu4.setOpaque(true);
+            this.jMenu5.setBackground(Color.DARK_GRAY);
+            this.jMenu5.setForeground(Color.WHITE);
+            jMenu5.setOpaque(true);
+            this.jMenu6.setBackground(Color.DARK_GRAY);
+            this.jMenu6.setForeground(Color.WHITE);
+
+            jMenu6.setOpaque(true);
+        } else {
+            jMenuBar1.setUI(new BasicMenuBarUI() {
+                public void paint(Graphics g, JComponent c) {
+                    g.setColor(Color.WHITE);
+                    g.fillRect(0, 0, c.getWidth(), c.getHeight());
+                }
+            });
+            this.TextAreaCodigo.setBackground(Color.WHITE);
+            this.TextAreaCodigo.setForeground(Color.BLACK);
+            this.TextAreaCodigo.setCaretColor(Color.BLACK);
+            isNightMode = false;
+            this.lineNumber.updateColor(isNightMode);
+            this.jMenuBar1.setBackground(Color.black);
+            jMenuBar1.setOpaque(true);
+
+            this.jMenu1.setBackground(Color.WHITE);
+            this.jMenu1.setForeground(Color.BLACK);
+            jMenu1.setOpaque(true);
+            this.jMenuItem1.setBackground(Color.WHITE);
+            this.jMenuItem1.setForeground(Color.BLACK);
+            jMenuItem1.setOpaque(true);
+
+            this.jMenuItem2.setBackground(Color.WHITE);
+            this.jMenuItem2.setForeground(Color.BLACK);
+            jMenuItem2.setOpaque(true);
+            this.jMenuItem3.setBackground(Color.WHITE);
+            this.jMenuItem3.setForeground(Color.BLACK);
+            jMenuItem3.setOpaque(true);
+
+            this.jMenuItem4.setBackground(Color.WHITE);
+            this.jMenuItem4.setForeground(Color.BLACK);
+            jMenuItem4.setOpaque(true);
+
+            this.jCheckBoxTheme.setBackground(Color.WHITE);
+            this.jCheckBoxTheme.setForeground(Color.BLACK);
+            jCheckBoxTheme.setOpaque(true);
+
+            this.jMenu2.setBackground(Color.WHITE);
+            this.jMenu2.setForeground(Color.BLACK);
+            jMenu2.setOpaque(true);
+            this.jMenu3.setBackground(Color.WHITE);
+            this.jMenu3.setForeground(Color.BLACK);
+            jMenu3.setOpaque(true);
+            this.jMenu4.setBackground(Color.WHITE);
+            this.jMenu4.setForeground(Color.BLACK);
+            jMenu4.setOpaque(true);
+            this.jMenu5.setBackground(Color.WHITE);
+            this.jMenu5.setForeground(Color.BLACK);
+            jMenu5.setOpaque(true);
+            this.jMenu6.setBackground(Color.WHITE);
+            this.jMenu6.setForeground(Color.BLACK);
+
+            jMenu6.setOpaque(true);
+        }
+    }//GEN-LAST:event_jCheckBoxThemeStateChanged
+
     private void tecla(java.awt.event.KeyEvent evt) {
         int keyCode = evt.getKeyCode();
         if ((keyCode >= 65 && keyCode <= 90) || (keyCode >= 48 && keyCode <= 57)
@@ -698,11 +946,14 @@ public class Interfaz extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextPane TextAreaCodigo;
+    private javax.swing.JCheckBoxMenuItem jCheckBoxTheme;
+    private javax.swing.JLabel jLabelLine;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
     private javax.swing.JMenu jMenu3;
     private javax.swing.JMenu jMenu4;
     private javax.swing.JMenu jMenu5;
+    private javax.swing.JMenu jMenu6;
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JMenuItem jMenuItem2;

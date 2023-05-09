@@ -18,10 +18,10 @@ operadores_dobles = {"++": "INCREMENTO", "--": "DECREMENTO"}
 tokens = []
 linea = 1
 col = 1
+
 i = 0
 while i < len(contenido):
     # Ignorar espacios en blanco
-    col+=1
     if contenido[i].isspace():
         if (contenido[i] == "\n"):
             linea +=1
@@ -34,13 +34,20 @@ while i < len(contenido):
         continue
     # Identificar comentarios multilinea
     if contenido[i:i+2] == "/*":
-        i = contenido.index("*/", i) + 2
+        aux = contenido.index("*/", i) + 2
+        j = i
+        while j < aux:
+            if contenido[j] == '\n':
+                linea+=1
+            j+=1
+        i = aux
         continue
     # Identificar palabras reservadas, identificadores y números
     if contenido[i].isalpha():
         j = i + 1
         while j < len(contenido) and (contenido[j].isalnum() or contenido[j] == "_"):
             j += 1
+            col+=1
         token = contenido[i:j]
         if token in palabras_reservadas:
             tokens.append("[" + token + ", "  + palabras_reservadas[token] +"]")
@@ -52,10 +59,13 @@ while i < len(contenido):
         j = i + 1
         while j < len(contenido) and contenido[j].isdigit():
             j += 1
+            col+=1
         if j < len(contenido) and contenido[j] == ".":
             j += 1
+            col+=1
             while j < len(contenido) and contenido[j].isdigit():
                 j += 1
+                col+=1
             tokens.append("[" + contenido[i:j] + ", flotante]")
         else:
             tokens.append("[" + contenido[i:j] + ", entero]")
@@ -65,11 +75,13 @@ while i < len(contenido):
     if contenido[i] in simbolos_especiales:
         tokens.append("[" + contenido[i] + ", simbolo especial]")
         i += 1
+        col+=1
         continue
     # Identificar operadores aritméticos y relacionales
     if contenido[i:i+2] in operadores_relacionales:
         tokens.append("[" + operadores_relacionales[contenido[i:i+2]] + ", operador relacional]")
         i += 2
+        col+=2
         continue
     elif contenido[i] in operadores_relacionales:
         tokens.append("[" + operadores_relacionales[contenido[i]] + ", operador relacional]")
@@ -78,14 +90,17 @@ while i < len(contenido):
     if contenido[i:i+2] in operadores_dobles:
         tokens.append("[" +contenido[i:i+2] + ", operador aritmetico]")
         i += 2
+        col+=1
         continue
     elif contenido[i] in operadores_aritmeticos:
         tokens.append("[" + contenido[i] + ", operador aritmetico]")
         i +=1
+        col+=1
         continue
     else: 
         tokens.append("error (linea:" + str(linea) +", columna: " + str(col+1) + ")")
         i+=1
+        col+=1
         continue
 for item in tokens:
     print(item)
