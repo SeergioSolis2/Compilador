@@ -153,8 +153,13 @@ public class Interfaz extends javax.swing.JFrame {
         final AttributeSet attOperadores = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.cyan);
         final AttributeSet attwhite = cont.addAttribute(cont.getEmptySet(), StyleConstants.Foreground, Color.WHITE);
         //STYLO 
-        DefaultStyledDocument doc = new DefaultStyledDocument() {
-            @Override
+        DefaultStyledDocument doc = new DefaultStyledDocument() {           
+            
+            @Override 
+            public void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr){
+                super.insertUpdate(chng, attr);
+                
+            }
             public void insertString(int offset, String str, AttributeSet a) throws BadLocationException {
                 super.insertString(offset, str, a);
 
@@ -169,7 +174,7 @@ public class Interfaz extends javax.swing.JFrame {
 
                 while (wordR <= after) {
                     if (wordR == after || String.valueOf(text.charAt(wordR)).matches("\\W")) {
-                        if (text.substring(wordL, wordR).matches("(\\W)*(if|IF|else|ELSE|end|END|do|DO|while|WHILE|repeat|REPEAT|until|UNTIL|cin|cout)")) {
+                        if (text.substring(wordL, wordR).matches("(\\W)*(main|if|IF|else|ELSE|end|END|do|DO|while|WHILE|repeat|REPEAT|until|UNTIL|cin|cout)")) {
                             setCharacterAttributes(wordL, wordR - wordL, attblue, true);
                         } else if (text.substring(wordL, wordR).matches("(\\W)*(int|INT|real|REAL|boolean|BOOLEAN)")) {
                             setCharacterAttributes(wordL, wordR - wordL, attgreen, true);
@@ -177,7 +182,7 @@ public class Interfaz extends javax.swing.JFrame {
                             setCharacterAttributes(wordL, wordR - wordL, attred, true);
                         } else if (text.substring(wordL, wordR).matches("(\\W)*(true|TRUE|false|FALSE)")) {
                             setCharacterAttributes(wordL, wordR - wordL, attpink, true);
-                        } else if (text.substring(wordL, wordR).matches("[-+*/=]")) {
+                        } else if (text.substring(wordL, wordR).matches("[-+*/=<>!]")) {
                             setCharacterAttributes(wordL, wordR - wordL, attOperadores, true);
                         } else {
                             MutableAttributeSet attrs = new SimpleAttributeSet();
